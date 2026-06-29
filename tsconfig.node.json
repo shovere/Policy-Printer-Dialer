@@ -3,6 +3,8 @@
     "target": "ES2022",
     "lib": ["ES2023"],
     "module": "ESNext",
+    // Intentional — do NOT remove (Vite default; shields third-party .d.ts).
+    // See tsconfig.app.json + plans/policy_printer_dialer/03_twilio_and_sip.md.
     "skipLibCheck": true,
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,

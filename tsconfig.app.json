@@ -4,6 +4,10 @@
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
+    // Intentional — do NOT remove. Vite scaffolds this by default; it also shields
+    // us from third-party .d.ts issues (e.g. @twilio/voice-sdk and the backend's
+    // twilio 6.x). Skips type-checking of .d.ts files ONLY — our src stays fully
+    // strict-checked. See plans/policy_printer_dialer/03_twilio_and_sip.md.
     "skipLibCheck": true,
 
     "moduleResolution": "bundler",
