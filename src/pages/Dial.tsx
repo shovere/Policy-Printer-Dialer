@@ -13,6 +13,7 @@ import {
 import {useHeartbeat} from '@/presence/useHeartbeat';
 import {useDevice} from '@/twilio/useDevice';
 import {ActiveCallBanner} from '@/twilio/ActiveCallBanner';
+import {LeadForm} from '@/leads/LeadForm';
 
 /**
  * Dial page (Subplan 02 + 03) — presence, heartbeat, campaign selection, and the
@@ -122,6 +123,17 @@ export default function Dial() {
 					call={device.activeCall}
 					onMute={device.mute}
 					onHangup={device.hangup}
+				/>
+			)}
+
+			{/* Lead capture — shown while on a call with a campaign selected. Keyed by
+			    CallSid so each new call starts a fresh, blank form for that caller. */}
+			{device.activeCall && selectedCampaignId && (
+				<LeadForm
+					key={device.activeCall.callSid}
+					campaignId={selectedCampaignId}
+					callSid={device.activeCall.callSid || null}
+					callerPhone={device.activeCall.from}
 				/>
 			)}
 

@@ -169,3 +169,206 @@ export const getTwilioToken = (): Promise<TwilioTokenResponse> =>
  *  mid-call availability is 0. Returns the recomputed availability/presence. */
 export const setOnCall = (onCall: boolean): Promise<PresenceResponse> =>
 	qsPost('/policyPrinter/dialer/presence/onCall', {on_call: onCall});
+
+/* -------------------------------------------------------------------------- */
+/* Lead workflow — form bundle, save (Subplan 04)                             */
+/* -------------------------------------------------------------------------- */
+
+/** The field types a lead form can render (mirrors the backend contract). */
+export type FormFieldType =
+	| 'text'
+	| 'textarea'
+	| 'phone'
+	| 'email'
+	| 'number'
+	| 'date'
+	| 'select'
+	| 'radio'
+	| 'checkbox'
+	| 'boolean';
+
+export interface FormFieldOption {
+	value: string;
+	label: string;
+}
+
+/** One field in a form's ordered schema. label/help are ALWAYS plain text. */
+export interface FormField {
+	key: string;
+	label: string;
+	help?: string;
+	type: FormFieldType;
+	required?: boolean;
+	options?: FormFieldOption[];
+	sort_order: number;
+	active?: boolean;
+}
+
+/** The published lead form for a campaign (latest version). */
+export interface DialerForm {
+	id: string;
+	org_id: string;
+	form_key: string;
+	version: number;
+	name: string;
+	status: 'draft' | 'published' | 'archived';
+	schema: FormField[];
+	created_at: string;
+	updated_at: string;
+}
+
+/** A call-outcome the agent picks after a call. */
+export interface DialerDisposition {
+	id: string;
+	org_id: string;
+	campaign_id: string | null;
+	disposition_key: string;
+	label: string;
+	sort_order: number;
+	active: boolean;
+}
+
+/** leadForm/get response: the active form (null = none published) + dispositions. */
+export interface LeadFormBundleResponse {
+	statusCode: string;
+	statusMessage: string;
+	form?: DialerForm | null;
+	dispositions?: DialerDisposition[];
+}
+
+/** lead/save + lead/update response. */
+export interface SaveLeadResponse {
+	statusCode: string;
+	statusMessage: string;
+	lead_id?: string;
+}
+
+/** Fetch the active form + dispositions for the selected campaign. */
+export const getLeadFormBundle = (
+	campaignId: string
+): Promise<LeadFormBundleResponse> =>
+	qsPost('/policyPrinter/dialer/leadForm/get', {campaign_id: campaignId});
+
+/** Save a lead captured during/after a call. The backend validates server-side. */
+export const saveLead = (payload: {
+	campaign_id: string;
+	twilio_call_sid?: string | null;
+	caller_phone?: string | null;
+	name?: string | null;
+	disposition_id?: string | null;
+	form_data: Record<string, unknown>;
+}): Promise<SaveLeadResponse> =>
+	qsPost('/policyPrinter/dialer/lead/save', payload);
+
+/** Update an existing lead (owning-agent only). Only provided fields change. */
+export const updateLead = (payload: {
+	lead_id: string;
+	name?: string | null;
+	disposition_id?: string | null;
+	form_data?: Record<string, unknown>;
+}): Promise<SaveLeadResponse> =>
+	qsPost('/policyPrinter/dialer/lead/update', payload);
+
+/* -------------------------------------------------------------------------- */
+/* CRM lead tracker — list / detail / recording (Subplan 05)                  */
+/* -------------------------------------------------------------------------- */
+
+/** Filters for the lead list. Omit/blank a field to not filter on it. */
+export interface LeadFilters {
+	campaign_id?: string | null;
+	disposition_id?: string | null;
+	caller_phone?: string | null;
+	name?: string | null;
+	created_from?: string | null;
+	created_to?: string | null;
+}
+
+/** One row in the lead list (trimmed projection for fast rendering). */
+export interface LeadListItem {
+	id: string;
+	caller_phone: string | null;
+	name: string | null;
+	campaign_id: string | null;
+	campaign_name: string | null;
+	disposition_id: string | null;
+	disposition_label: string | null;
+	created_at: string;
+	updated_at: string;
+}
+
+/** Paginated lead-list response (matches the wallet count+page envelope). */
+export interface LeadListResponse {
+	statusCode: string;
+	statusMessage: string;
+	leads?: LeadListItem[];
+	total?: number;
+	totalPages?: number;
+	currentPage?: number;
+	limit?: number;
+}
+
+/** One entry in a lead's audit timeline. */
+export interface LeadEvent {
+	id: string;
+	event_type: string;
+	detail: Record<string, unknown>;
+	actor_user_id: string | null;
+	created_at: string;
+}
+
+/** The linked call's lifecycle + recording (null when no call is linked). */
+export interface LeadCall {
+	id: string;
+	twilio_call_sid: string | null;
+	caller_phone: string | null;
+	status: string | null;
+	started_at: string | null;
+	answered_at: string | null;
+	ended_at: string | null;
+	recording_url: string | null;
+}
+
+/** Full lead detail: the lead + its frozen snapshot, timeline, and call. */
+export interface LeadDetailResponse {
+	statusCode: string;
+	statusMessage: string;
+	lead?: {
+		id: string;
+		caller_phone: string | null;
+		name: string | null;
+		campaign_id: string | null;
+		disposition_id: string | null;
+		disposition_label: string | null;
+		form_id: string | null;
+		form_version: number | null;
+		form_schema_snapshot: FormField[] | null;
+		form_data: Record<string, unknown>;
+		created_at: string;
+		updated_at: string;
+	};
+	campaign_name?: string | null;
+	events?: LeadEvent[];
+	call?: LeadCall | null;
+}
+
+export interface RecordingResponse {
+	statusCode: string;
+	statusMessage: string;
+	recording_url?: string | null;
+}
+
+/** The caller's own leads, filtered + paginated (newest first). */
+export const listLeads = (
+	filters: LeadFilters,
+	limit: number,
+	page: number
+): Promise<LeadListResponse> =>
+	qsPost('/policyPrinter/dialer/leads/list', {filters, limit, page});
+
+/** Full detail for one of the caller's leads (owning-agent only). */
+export const getLeadDetail = (leadId: string): Promise<LeadDetailResponse> =>
+	qsPost('/policyPrinter/dialer/lead/detail', {lead_id: leadId});
+
+/** The recording URL for one of the caller's leads (null = not available yet). */
+export const getLeadRecording = (leadId: string): Promise<RecordingResponse> =>
+	qsPost('/policyPrinter/dialer/lead/recording', {lead_id: leadId});
