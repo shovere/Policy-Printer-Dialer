@@ -225,8 +225,6 @@ export default function Dial() {
 									.
 								</p>
 							)}
-
-							<ProfileRows profile={profile} />
 						</>
 					)}
 				</CardContent>
@@ -272,29 +270,6 @@ function reasonNotAvailable(
 	if (deviceStatus !== 'registered')
 		return 'your softphone device isn’t connected yet';
 	return 'waiting on a fresh heartbeat';
-}
-
-function ProfileRows({profile}: {profile: any}) {
-	if (!profile?.agent) return null;
-	return (
-		<div className="space-y-1 border-t border-border pt-3">
-			<Row label="Twilio identity" value={profile.agent.twilio_identity} />
-			<Row label="SIP username" value={profile.agent.sip_username ?? '—'} />
-			<Row
-				label="Retreaver buyer id"
-				value={profile.agent.retreaver_buyer_id ?? '—'}
-			/>
-		</div>
-	);
-}
-
-function Row({label, value}: {label: string; value: string}) {
-	return (
-		<div className="flex justify-between gap-4">
-			<span className="text-muted-foreground">{label}</span>
-			<span className="font-mono">{value}</span>
-		</div>
-	);
 }
 
 function readError(err: any, fallback: string): string {
