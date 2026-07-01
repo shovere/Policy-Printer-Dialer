@@ -56,13 +56,28 @@ api.interceptors.response.use(
 	}
 );
 
-/** POST a qualityscore endpoint (path relative to /api/v1/qualityscore). */
+/**
+ * POST a qualityscore endpoint (path relative to /api/v1/qualityscore).
+ *
+ * The authed backend wraps every payload via responseHandler as
+ * `{ statusCode, statusMessage, data: {...fields} }` (nested — like all EmberQA
+ * endpoints; only the unauth handoff/webhook routes are flat). Our response types
+ * + callers expect the fields AND statusCode/statusMessage together at the top
+ * level, so we FLATTEN: spread `data` up and re-attach statusCode/statusMessage.
+ * One place → every caller (presence, campaigns, leads, twilio token, …) sees the
+ * right shape.
+ */
 export const qsPost = async <T = any>(
 	path: string,
 	body: Record<string, unknown> = {}
 ): Promise<T> => {
 	const res = await api.post(`/qualityscore${path}`, body);
-	return res.data as T;
+	const envelope = res.data ?? {};
+	return {
+		...(envelope.data ?? {}),
+		statusCode: envelope.statusCode,
+		statusMessage: envelope.statusMessage
+	} as T;
 };
 
 /** The caller's dialer profile (lazily created server-side). */
