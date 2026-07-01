@@ -14,7 +14,7 @@ import {setSession, hasSession} from './session';
 
 const DIALER_AUTH_BASE =
 	import.meta.env.VITE_DIALER_AUTH_BASE ??
-	`${import.meta.env.VITE_API_BASE ?? 'http://localhost:3001'}/dialer-auth/v1`;
+	`${import.meta.env.VITE_API_BASE ?? 'http://localhost:3000'}/dialer-auth/v1`;
 
 export type HandoffResult =
 	| {status: 'authenticated'}
@@ -36,8 +36,13 @@ const takeCodeFromUrl = (): string | null => {
 /**
  * Run once at app boot. If a ?code is present, exchange it (overriding any stale
  * session). Otherwise fall back to an existing stored session.
+ *
+ * Memoized via `runHandoff` below so the ?code is read+stripped and the single-use
+ * exchange fires EXACTLY ONCE per tab session — React StrictMode double-invokes the
+ * boot effect in dev, and without this the 1st pass strips the code while the 2nd
+ * pass sees no code and drops to the "relaunch" screen (a race the 2nd pass wins).
  */
-export const runHandoff = async (): Promise<HandoffResult> => {
+const doHandoff = async (): Promise<HandoffResult> => {
 	const code = takeCodeFromUrl();
 
 	if (!code) {
@@ -72,4 +77,17 @@ export const runHandoff = async (): Promise<HandoffResult> => {
 			'Failed to exchange handoff code';
 		return {status: 'failed', message};
 	}
+};
+
+/**
+ * StrictMode-safe entry point. Caches the first `doHandoff()` promise at module
+ * scope so both dev double-invocations of the boot effect await the SAME result —
+ * the URL is read once, the code is consumed once, and the 2nd pass resolves to the
+ * authenticated result instead of a stale `no-code`.
+ */
+let handoffPromise: Promise<HandoffResult> | null = null;
+
+export const runHandoff = (): Promise<HandoffResult> => {
+	if (!handoffPromise) handoffPromise = doHandoff();
+	return handoffPromise;
 };

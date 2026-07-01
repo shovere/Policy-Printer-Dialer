@@ -20,7 +20,9 @@ import {
 	clearSession
 } from '@/auth/session';
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3001';
+// Dev fallback is the BACKEND port (3000) — matches EmberQA's fetchWithAuth
+// convention. 3001 is the EmberQA frontend, not the API. Prod sets VITE_API_BASE.
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3000';
 
 export const api: AxiosInstance = axios.create({
 	baseURL: `${API_BASE}/api/v1`
